@@ -211,6 +211,27 @@ const App: React.FC = () => {
 
     useEffect(() => {
         let mounted = true;
+        let isTabVisible = typeof document !== 'undefined' ? !document.hidden : true;
+        let lastVisibilityChange = Date.now();
+        const VISIBILITY_DEBOUNCE_MS = 500; // Wait 500ms after visibility change before processing events
+
+        // Listen to visibility changes to prevent actions when tab is not visible
+        const handleVisibilityChange = () => {
+            if (typeof document === 'undefined') return;
+            const wasHidden = !isTabVisible;
+            isTabVisible = !document.hidden;
+            lastVisibilityChange = Date.now();
+            
+            // If tab just became visible, wait a bit before processing any events
+            if (!wasHidden && isTabVisible) {
+                // Tab just became visible - ignore events for a short period
+                return;
+            }
+        };
+        
+        if (typeof document !== 'undefined') {
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+        }
 
         // Check if client exists or if we have credentials available
         // Note: supabaseService already checks env vars and initializes client if available
@@ -224,7 +245,11 @@ const App: React.FC = () => {
             // supabaseService will initialize it on next render
             if (!client) {
                 // Just mark as connected - client will be initialized by supabaseService
-                return;
+                return () => {
+                    if (typeof document !== 'undefined') {
+                        document.removeEventListener('visibilitychange', handleVisibilityChange);
+                    }
+                };
             }
 
             const initAuth = async () => {
@@ -265,6 +290,17 @@ const App: React.FC = () => {
 
             const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
                 if (!mounted) return;
+                
+                // Ignore all events when tab is not visible to prevent unnecessary state changes
+                if (typeof document !== 'undefined' && (document.hidden || !isTabVisible)) {
+                    return;
+                }
+                
+                // Ignore events immediately after visibility change to prevent reloads
+                const timeSinceVisibilityChange = Date.now() - lastVisibilityChange;
+                if (timeSinceVisibilityChange < VISIBILITY_DEBOUNCE_MS) {
+                    return;
+                }
 
                 if (event === 'SIGNED_IN') {
                     if (signInProcessingRef.current) return;
@@ -335,6 +371,11 @@ const App: React.FC = () => {
 
             const sessionCheckInterval = setInterval(async () => {
                 if (!mounted) return;
+                
+                // Skip session check if tab is not visible (user switched to another tab)
+                if (typeof document !== 'undefined' && (document.hidden || !isTabVisible)) {
+                    return;
+                }
 
                 const { data: { session: currentSession } } = await client.auth.getSession();
                 if (!currentSession) {
@@ -381,10 +422,18 @@ const App: React.FC = () => {
                 mounted = false;
                 subscription.unsubscribe();
                 clearInterval(sessionCheckInterval);
+                if (typeof document !== 'undefined') {
+                    document.removeEventListener('visibilitychange', handleVisibilityChange);
+                }
             };
         } else {
             setAuthLoading(false);
             setIsConnected(false);
+            return () => {
+                if (typeof document !== 'undefined') {
+                    document.removeEventListener('visibilitychange', handleVisibilityChange);
+                }
+            };
         }
     }, [client]);
 
