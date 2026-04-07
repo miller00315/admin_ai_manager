@@ -54,7 +54,8 @@ const Navigation: React.FC<NavigationProps> = ({ currentView, onNavigate, userEm
       agents: { id: 'agents', label: 'Agentes IA', desc: 'Tutores e Assistentes', icon: Bot },
       config: { id: 'settings', label: 'Configurações', desc: 'Sistema', icon: Settings },
       rules: { id: 'rules', label: 'Regras de Usuário', desc: 'Permissões', icon: ShieldCheck },
-      bncc: { id: 'bncc', label: 'BNCC', desc: 'Base Nacional Comum', icon: ScrollText },
+      bncc: { id: 'bncc', label: 'BNCC', desc: 'Códigos e vínculos', icon: ScrollText },
+      bncc_catalog: { id: 'bncc_catalog', label: 'Catálogo BNCC', desc: 'Disciplinas e competências', icon: Layers },
       
       // Institution Manager specific
       my_institution: { id: 'my_institution', label: 'Minha Instituição', desc: 'Perfil', icon: Building2 },
@@ -74,7 +75,7 @@ const Navigation: React.FC<NavigationProps> = ({ currentView, onNavigate, userEm
                   { label: 'Estrutura Acadêmica', type: 'header' },
                   items.professors, items.students, items.classes, items.grades, items.disciplines,
                   { label: 'Educacional', type: 'header' },
-                  items.bncc, items.questions, items.tests, items.releases, items.grading, items.results, items.agents
+                  items.bncc, items.bncc_catalog, items.questions, items.tests, items.releases, items.grading, items.results, items.agents
               ];
           case 'Institution':
               return [

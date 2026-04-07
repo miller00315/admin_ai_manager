@@ -4,8 +4,10 @@ import { SettingsRepositoryImpl, InstitutionRepositoryImpl, ProfessorRepositoryI
 import { getSupabaseClient } from '../../services/supabaseService';
 import { InstitutionType, SchoolGrade, Department, Discipline, Institution, Professor } from '../../types';
 import { getFriendlyErrorMessage } from '../../utils/errorHandling';
+import { useSessionRole } from '../context/SessionRoleContext';
 
 export const useSettingsManager = (hasSupabase: boolean, institutionId?: string) => {
+    const { isAdministrator, userRole } = useSessionRole();
     const [types, setTypes] = useState<InstitutionType[]>([]);
     const [grades, setGrades] = useState<SchoolGrade[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
@@ -37,57 +39,46 @@ export const useSettingsManager = (hasSupabase: boolean, institutionId?: string)
         setError(null);
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            let adminStatus = false;
-            let managerStatus = false;
-            let isTeacher = false;
+            const adminStatus = isAdministrator;
+            const managerStatus = userRole === 'Institution';
+            const isTeacher = userRole === 'Teacher';
             let targetInstId = institutionId;
             let teacherGradeIds: string[] = [];
             let currentProfId: string | null = null;
 
-            if (user) {
-                const { data, error: userError } = await supabase.from('app_users').select('user_rules(rule_name), id').eq('auth_id', user.id).single();
+            if (user && (managerStatus || isTeacher)) {
+                const { data, error: userError } = await supabase.from('app_users').select('id').eq('auth_id', user.id).single();
                 if (userError) {
                     console.error('Error fetching user data:', userError);
                 } else if (data) {
-                    // Handle both array and object cases for user_rules relation
-                    const userRules = data?.user_rules;
-                    const ruleName = Array.isArray(userRules) ? (userRules[0] as any)?.rule_name : (userRules as any)?.rule_name;
-                    if (ruleName === 'Administrator') adminStatus = true;
-                    if (ruleName === 'Institution') managerStatus = true;
-                    if (ruleName === 'Teacher') isTeacher = true;
-
-                    // Auto-detect institution for Manager
                     if (managerStatus && !targetInstId) {
                         const { data: inst } = await supabase.from('institutions').select('id').eq('manager_id', data.id).maybeSingle();
                         if (inst) targetInstId = inst.id;
                     }
 
-                    // Auto-detect institution and grades for Teacher (Professor)
                     if (isTeacher && !targetInstId) {
                         const { data: prof } = await supabase
                             .from('professors')
                             .select('id, departments(institution_id)')
                             .eq('user_id', data.id)
                             .maybeSingle();
-                        
+
                         if (prof) {
                             currentProfId = prof.id;
-                            
-                            // Handle both array and object cases for departments relation
+
                             const deptData = prof.departments;
                             let instId: string | undefined;
-                            
+
                             if (Array.isArray(deptData) && deptData.length > 0) {
                                 instId = deptData[0].institution_id;
                             } else if (deptData && typeof deptData === 'object' && 'institution_id' in deptData) {
                                 instId = (deptData as any).institution_id;
                             }
-                            
+
                             if (instId) {
                                 targetInstId = instId;
                             }
 
-                            // Fetch only grades linked to disciplines this professor teaches
                             const { data: disciplines } = await supabase
                                 .from('disciplines')
                                 .select('grade_id')
@@ -187,8 +178,8 @@ export const useSettingsManager = (hasSupabase: boolean, institutionId?: string)
             console.error('Error in fetchData:', e);
             setError(e.message || "Failed to load settings.");
             // Ensure states are set even on error
-            setIsAdmin(false);
-            setIsManager(false);
+            setIsAdmin(isAdministrator);
+            setIsManager(userRole === 'Institution');
             setTypes([]);
             setGrades([]);
             setDepartments([]);
@@ -197,7 +188,7 @@ export const useSettingsManager = (hasSupabase: boolean, institutionId?: string)
         } finally {
             setLoading(false);
         }
-    }, [useCase, instUseCase, profUseCase, supabase, institutionId, showDeleted]);
+    }, [useCase, instUseCase, profUseCase, supabase, institutionId, showDeleted, isAdministrator, userRole]);
 
     useEffect(() => {
         if (hasSupabase) fetchData();

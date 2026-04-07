@@ -5,14 +5,15 @@ import { AIAgentRepositoryImpl, AIRepositoryImpl } from '../../data/repositories
 import { getSupabaseClient } from '../../services/supabaseService';
 import { AIAgent } from '../../types';
 import { getFriendlyErrorMessage } from '../../utils/errorHandling';
+import { useSessionRole } from '../context/SessionRoleContext';
 
 export const useAIAgentManager = (hasSupabase: boolean) => {
+    const { isAdministrator } = useSessionRole();
     const [agents, setAgents] = useState<AIAgent[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [chatHistory, setChatHistory] = useState<{role: 'user' | 'model', parts: {text: string}[]}[]>([]);
     const [isChatting, setIsChatting] = useState(false);
-    const [isAdmin, setIsAdmin] = useState(false);
     const [showDeleted, setShowDeleted] = useState(false);
 
     const supabase = getSupabaseClient();
@@ -30,22 +31,8 @@ export const useAIAgentManager = (hasSupabase: boolean) => {
         setLoading(true);
         setError(null);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            let adminStatus = false;
-            if (user) {
-                const { data } = await supabase.from('app_users').select('user_rules(rule_name)').eq('auth_id', user.id).single();
-                if (data?.user_rules?.rule_name === 'Administrator') adminStatus = true;
-            }
-            setIsAdmin(adminStatus);
-
-            // Assuming getAll doesn't support filter yet, we can filter client side or update repo.
-            // Since I cannot update Repo in this turn, I will assume repo returns all for now and I filter client side if not admin.
-            // However, a better approach is to rely on RLS/Backend. 
-            // For now, let's fetch all and filter in memory if the backend logic isn't updated.
             const data = await useCase.getAgents();
-            
-            // Client side filter fallback
-            const filteredData = data.filter(a => (adminStatus && showDeleted) ? true : !a.deleted);
+            const filteredData = data.filter(a => (isAdministrator && showDeleted) ? true : !a.deleted);
             
             setAgents(filteredData);
         } catch (err: any) {
@@ -59,7 +46,7 @@ export const useAIAgentManager = (hasSupabase: boolean) => {
         } finally {
             setLoading(false);
         }
-    }, [useCase, supabase, showDeleted]);
+    }, [useCase, supabase, showDeleted, isAdministrator]);
 
     useEffect(() => {
         if (hasSupabase) fetchAgents();
@@ -133,7 +120,7 @@ export const useAIAgentManager = (hasSupabase: boolean) => {
         saveAgent,
         deleteAgent,
         restoreAgent,
-        isAdmin, showDeleted, setShowDeleted,
+        isAdmin: isAdministrator, showDeleted, setShowDeleted,
         sendMessage,
         clearChat
     };

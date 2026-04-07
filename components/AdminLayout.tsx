@@ -7,6 +7,7 @@ import { Menu, ShieldCheck } from 'lucide-react';
 import LanguageSwitcher from './LanguageSwitcher';
 import ThemeSwitcher from './ThemeSwitcher';
 import { useAppTranslation } from '../presentation/hooks/useAppTranslation';
+import { useSessionRole } from '../presentation/context/SessionRoleContext';
 import Breadcrumb, { BreadcrumbItem } from './Breadcrumb';
 
 // Admin Components
@@ -25,6 +26,7 @@ import AIAgentManager from './AIAgentManager';
 import UserRuleManager from './UserRuleManager';
 import SettingsManager from './SettingsManager';
 import BNCCManager from './BNCCManager';
+import BnccCatalogManager from './BnccCatalogManager';
 import DisciplineManager from './DisciplineManager';
 import InstitutionTypeManager from './InstitutionTypeManager';
 
@@ -37,6 +39,7 @@ const AdminLayout: React.FC<LayoutProps> = ({ session, isConnected }) => {
     const [currentView, setCurrentView] = useState<View>('dashboard');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const { t } = useAppTranslation();
+    const { userRole } = useSessionRole();
 
     // Translate view names
     const getViewTitle = (view: View): string => {
@@ -52,6 +55,7 @@ const AdminLayout: React.FC<LayoutProps> = ({ session, isConnected }) => {
             grades: t('nav.grades'),
             disciplines: t('nav.disciplines'),
             bncc: 'BNCC',
+            bncc_catalog: 'Catálogo BNCC',
             questions: t('nav.questions'),
             tests: t('nav.tests'),
             releases: t('nav.releases'),
@@ -100,6 +104,7 @@ const AdminLayout: React.FC<LayoutProps> = ({ session, isConnected }) => {
             
             // Educational / Content
             case 'bncc': return <BNCCManager hasSupabase={isConnected} />;
+            case 'bncc_catalog': return <BnccCatalogManager hasSupabase={isConnected} />;
             case 'questions': return <QuestionManager hasSupabase={isConnected} />;
             case 'tests': return <TestManager hasSupabase={isConnected} />;
             case 'releases': return <TestReleaseManager hasSupabase={isConnected} />;
@@ -127,7 +132,7 @@ const AdminLayout: React.FC<LayoutProps> = ({ session, isConnected }) => {
                     currentView={currentView} 
                     onNavigate={handleNavigate} 
                     userEmail={session?.user?.email}
-                    userRole="Administrator"
+                    userRole={userRole}
                     onClose={() => setIsSidebarOpen(false)}
                 />
             </div>

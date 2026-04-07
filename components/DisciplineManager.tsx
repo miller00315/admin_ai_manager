@@ -6,6 +6,7 @@ import { BookOpen, Plus, Trash2, Loader2, AlertTriangle, Building2, GraduationCa
 import { Discipline } from '../types';
 import ConfirmationModal from './ConfirmationModal';
 import { getSupabaseClient } from '../services/supabaseService';
+import { bnccCurriculumLabel, bnccSkillDescription } from '../utils/bnccDisplay';
 
 /**
  * DisciplineManager - INSTITUTION ONLY
@@ -470,8 +471,8 @@ const DisciplineManager: React.FC<DisciplineManagerProps> = ({ hasSupabase, inst
                                         />
                                         <div className="text-sm">
                                             <span className="font-bold text-purple-700 dark:text-purple-300">{b.codigo_alfanumerico}</span>
-                                            <span className="text-slate-600 dark:text-slate-300 ml-1">- {b.componente_curricular}</span>
-                                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{b.descricao_habilidade}</p>
+                                            <span className="text-slate-600 dark:text-slate-300 ml-1">- {bnccCurriculumLabel(b) || '—'}</span>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{bnccSkillDescription(b) || '—'}</p>
                                         </div>
                                     </label>
                                 ))
@@ -545,8 +546,8 @@ const DisciplineManager: React.FC<DisciplineManagerProps> = ({ hasSupabase, inst
                                                         </span>
                                                         {/* Tooltip */}
                                                         <div className="absolute z-20 hidden group-hover/bncc:block w-64 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-lg -top-2 left-full ml-2">
-                                                            <div className="font-bold text-purple-300 mb-1">{bncc.componente_curricular}</div>
-                                                            <p className="line-clamp-4">{bncc.descricao_habilidade}</p>
+                                                            <div className="font-bold text-purple-300 mb-1">{bnccCurriculumLabel(bncc) || '—'}</div>
+                                                            <p className="line-clamp-4">{bnccSkillDescription(bncc) || '—'}</p>
                                                         </div>
                                                     </div>
                                                 ) : null;

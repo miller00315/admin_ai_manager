@@ -4,13 +4,14 @@ import { QuestionUseCases } from '../../domain/usecases';
 import { QuestionRepositoryImpl, AIRepositoryImpl } from '../../data/repositories';
 import { getSupabaseClient } from '../../services/supabaseService';
 import { Question, AIQuestionParams } from '../../types';
+import { useSessionRole } from '../context/SessionRoleContext';
 
 export const useQuestionManager = (hasSupabase: boolean) => {
+  const { isAdministrator } = useSessionRole();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
 
   const supabase = getSupabaseClient();
@@ -28,15 +29,7 @@ export const useQuestionManager = (hasSupabase: boolean) => {
     setLoading(true);
     setError(null);
     try {
-        const { data: { user } } = await supabase.auth.getUser();
-        let adminStatus = false;
-        if (user) {
-            const { data } = await supabase.from('app_users').select('user_rules(rule_name)').eq('auth_id', user.id).single();
-            if (data?.user_rules?.rule_name === 'Administrator') adminStatus = true;
-        }
-        setIsAdmin(adminStatus);
-
-        const includeDeleted = adminStatus && showDeleted;
+        const includeDeleted = isAdministrator && showDeleted;
         const data = await useCase.getQuestions(includeDeleted);
         setQuestions(data);
     } catch (err: any) {
@@ -46,7 +39,7 @@ export const useQuestionManager = (hasSupabase: boolean) => {
     } finally {
         setLoading(false);
     }
-  }, [useCase, supabase, showDeleted]);
+  }, [useCase, supabase, showDeleted, isAdministrator]);
 
   useEffect(() => {
     if (hasSupabase) fetchQuestions();
@@ -113,7 +106,7 @@ export const useQuestionManager = (hasSupabase: boolean) => {
     saveManual,
     deleteQuestion,
     restoreQuestion,
-    isAdmin, showDeleted, setShowDeleted,
+    isAdmin: isAdministrator, showDeleted, setShowDeleted,
     refresh: fetchQuestions
   };
 };

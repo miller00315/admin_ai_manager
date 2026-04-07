@@ -6,6 +6,7 @@ import { Loader2, Database, GraduationCap, Save, AlertCircle } from 'lucide-reac
 import { Session } from '@supabase/supabase-js';
 import { useTheme } from './presentation/hooks/useTheme';
 import AdminLayout from './components/AdminLayout';
+import { SessionRoleProvider } from './presentation/context/SessionRoleContext';
 
 // --- SETUP SCREEN COMPONENT ---
 const SetupScreen = () => {
@@ -515,7 +516,11 @@ const App: React.FC = () => {
         );
     }
 
-    return <AdminLayout session={session} isConnected={isConnected} key={session?.user?.id || 'no-session'} />;
+    return (
+        <SessionRoleProvider userRole={userRole}>
+            <AdminLayout session={session} isConnected={isConnected} key={session?.user?.id || 'no-session'} />
+        </SessionRoleProvider>
+    );
 };
 
 export default App;

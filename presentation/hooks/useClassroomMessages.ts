@@ -4,16 +4,15 @@ import { ClassroomMessageRepositoryImpl } from '../../data/repositories';
 import { getSupabaseClient } from '../../services/supabaseService';
 import { ClassroomMessage, ClassroomMessageType } from '../../types';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { useSessionRole } from '../context/SessionRoleContext';
 
 export const useClassroomMessages = (roomId: string | null, hasSupabase: boolean) => {
+  const { isAdministrator, isInstitutionManager, isTeacher } = useSessionRole();
   const [messages, setMessages] = useState<ClassroomMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isInstitutionManager, setIsInstitutionManager] = useState(false);
-  const [isProfessor, setIsProfessor] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentAppUserId, setCurrentAppUserId] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState<string>('');
@@ -25,9 +24,8 @@ export const useClassroomMessages = (roomId: string | null, hasSupabase: boolean
     supabase ? new ClassroomMessageUseCases(new ClassroomMessageRepositoryImpl(supabase)) : null, 
   [supabase]);
 
-  // Fetch user role on mount
   useEffect(() => {
-    const fetchUserRole = async () => {
+    const fetchProfile = async () => {
       if (!supabase) return;
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -35,31 +33,24 @@ export const useClassroomMessages = (roomId: string | null, hasSupabase: boolean
           setCurrentUserId(user.id);
           const { data } = await supabase
             .from('app_users')
-            .select('id, first_name, last_name, user_rules(rule_name)')
+            .select('id, first_name, last_name')
             .eq('auth_id', user.id)
-            .single();
-          
+            .maybeSingle();
           if (data) {
             setCurrentAppUserId(data.id);
             setCurrentUserName(`${data.first_name || ''} ${data.last_name || ''}`.trim());
-            
-            const ruleName = data.user_rules?.rule_name;
-            if (ruleName === 'Administrator') setIsAdmin(true);
-            if (ruleName === 'Institution') setIsInstitutionManager(true);
-            if (ruleName === 'Teacher') setIsProfessor(true);
           }
         }
       } catch (err) {
-        console.error("Error fetching user role:", err);
+        console.error("Error fetching app user profile:", err);
       }
     };
-    if (hasSupabase) fetchUserRole();
+    if (hasSupabase) fetchProfile();
   }, [supabase, hasSupabase]);
 
-  // Professor, Admin and Institution can list ALL messages
-  const canListMessages = isAdmin || isInstitutionManager || isProfessor;
-  const canSendMessages = isAdmin || isInstitutionManager || isProfessor;
-  const canManageMessages = isAdmin; // Only admin can delete/restore
+  const canListMessages = isAdministrator || isInstitutionManager || isTeacher;
+  const canSendMessages = isAdministrator || isInstitutionManager || isTeacher;
+  const canManageMessages = isAdministrator;
 
   const fetchMessages = useCallback(async () => {
     if (!messageUseCase || !roomId || !canListMessages) return;
@@ -68,7 +59,7 @@ export const useClassroomMessages = (roomId: string | null, hasSupabase: boolean
     setError(null);
     
     try {
-      const includeDeleted = isAdmin && showDeleted;
+      const includeDeleted = isAdministrator && showDeleted;
       const data = await messageUseCase.getMessagesByRoom(roomId, includeDeleted);
       setMessages(data);
     } catch (err: any) {
@@ -77,7 +68,7 @@ export const useClassroomMessages = (roomId: string | null, hasSupabase: boolean
     } finally {
       setLoading(false);
     }
-  }, [messageUseCase, roomId, canListMessages, isAdmin, showDeleted]);
+  }, [messageUseCase, roomId, canListMessages, isAdministrator, showDeleted]);
 
   // Setup realtime subscription
   useEffect(() => {
@@ -191,7 +182,7 @@ export const useClassroomMessages = (roomId: string | null, hasSupabase: boolean
   };
 
   const restoreMessage = async (id: string) => {
-    if (!messageUseCase || !isAdmin) return;
+    if (!messageUseCase || !isAdministrator) return;
     
     try {
       await messageUseCase.restoreMessage(id);
@@ -211,8 +202,8 @@ export const useClassroomMessages = (roomId: string | null, hasSupabase: boolean
     canListMessages,
     canSendMessages,
     canManageMessages,
-    isAdmin,
-    isProfessor,
+    isAdmin: isAdministrator,
+    isProfessor: isTeacher,
     currentAppUserId,
     currentUserName,
     sendMessage,

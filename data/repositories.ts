@@ -35,7 +35,24 @@ export class QuestionRepositoryImpl implements IQuestionRepository {
                 *,
                 question_options(*),
                 school_grades(name),
-                bncc(id, codigo_alfanumerico, descricao_habilidade, ano_serie, componente_curricular, unidade_tematica)
+                bncc(
+                    id,
+                    codigo_alfanumerico,
+                    curriculum_component_id,
+                    discipline_reference_id,
+                    teaching_stage_id,
+                    specific_skills_id,
+                    curriculum_component(id, name, description),
+                    discipline_reference(id, name, description),
+                    teaching_stage(id, name, description),
+                    specific_skills(
+                        id,
+                        name,
+                        description,
+                        hability_id,
+                        hability:habilities(id, name, description)
+                    )
+                )
             `);
 
         if (!includeDeleted) {
@@ -1973,11 +1990,46 @@ export class LibraryRepositoryImpl implements ILibraryRepository {
     }
 }
 
+const BNCC_TABLE_SELECT = `
+    id,
+    codigo_alfanumerico,
+    curriculum_component_id,
+    discipline_reference_id,
+    teaching_stage_id,
+    specific_skills_id,
+    deleted,
+    created_at,
+    curriculum_component(id, name, description),
+    discipline_reference(id, name, description),
+    teaching_stage(id, name, description),
+    specific_skills(
+        id,
+        name,
+        description,
+        hability_id,
+        hability:habilities(id, name, description)
+    )
+`;
+
 export class BNCCRepositoryImpl implements IBNCCRepository {
     constructor(private supabase: SupabaseClient) { }
 
+    /** Persiste apenas colunas da tabela bncc; entidades do catálogo são criadas na tela Catálogo BNCC. */
+    private toPersistedRow(item: Partial<BNCCItem>): Record<string, unknown> {
+        const code = item.codigo_alfanumerico?.trim();
+        if (!code) throw new Error('codigo_alfanumerico é obrigatório');
+
+        return {
+            codigo_alfanumerico: code,
+            curriculum_component_id: item.curriculum_component_id?.trim() || null,
+            discipline_reference_id: item.discipline_reference_id?.trim() || null,
+            teaching_stage_id: item.teaching_stage_id?.trim() || null,
+            specific_skills_id: item.specific_skills_id?.trim() || null
+        };
+    }
+
     async getAll(includeDeleted = false): Promise<BNCCItem[]> {
-        let query = this.supabase.from('bncc').select('*');
+        let query = this.supabase.from('bncc').select(BNCC_TABLE_SELECT);
         if (!includeDeleted) query = query.eq('deleted', false);
         const { data, error } = await query.order('codigo_alfanumerico', { ascending: true });
         if (error) throw error;
@@ -1985,22 +2037,39 @@ export class BNCCRepositoryImpl implements IBNCCRepository {
     }
 
     async create(item: Partial<BNCCItem>): Promise<void> {
-        await this.supabase.from('bncc').insert(item);
+        const row = this.toPersistedRow(item);
+        const { error } = await this.supabase.from('bncc').insert(row);
+        if (error) throw error;
     }
 
     async update(id: string, item: Partial<BNCCItem>): Promise<void> {
-        await this.supabase.from('bncc').update(item).eq('id', id);
+        const row = this.toPersistedRow(item);
+        const { error } = await this.supabase.from('bncc').update(row).eq('id', id);
+        if (error) throw error;
     }
 
     async delete(id: string): Promise<void> {
-        // Check for disciplines using this BNCC code (via disciplines_bnccs junction table)
         const { count: disciplineCount } = await this.supabase
             .from('disciplines_bnccs')
             .select('discipline_id', { count: 'exact', head: true })
             .eq('bncc_id', id);
 
         if (disciplineCount && disciplineCount > 0) {
-            throw new DependencyError(`Não é possível excluir este código BNCC. Existem ${disciplineCount} disciplina(s) vinculada(s). Remova a referência das disciplinas primeiro.`);
+            throw new DependencyError(
+                `Não é possível excluir este código BNCC. Existem ${disciplineCount} disciplina(s) vinculada(s). Remova a referência das disciplinas primeiro.`
+            );
+        }
+
+        const { count: questionCount } = await this.supabase
+            .from('questions')
+            .select('id', { count: 'exact', head: true })
+            .eq('bncc_id', id)
+            .eq('deleted', false);
+
+        if (questionCount && questionCount > 0) {
+            throw new DependencyError(
+                `Não é possível excluir este código BNCC. Existem ${questionCount} questão(ões) vinculada(s). Remova a BNCC das questões primeiro.`
+            );
         }
 
         await this.supabase.from('bncc').update({ deleted: true }).eq('id', id);

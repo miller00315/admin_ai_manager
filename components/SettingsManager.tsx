@@ -1,59 +1,18 @@
 
-import React, { useState, useEffect } from 'react';
-import { Loader2, AlertTriangle, Settings } from 'lucide-react';
-import { getSupabaseClient } from '../services/supabaseService';
+import React from 'react';
+import { AlertTriangle, Settings } from 'lucide-react';
+import { useSessionRole } from '../presentation/context/SessionRoleContext';
 
 interface SettingsManagerProps {
   hasSupabase: boolean;
 }
 
 const SettingsManager: React.FC<SettingsManagerProps> = ({ hasSupabase }) => {
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-      const checkAdmin = async () => {
-          if (!hasSupabase) {
-              setLoading(false);
-              return;
-          }
-          const supabase = getSupabaseClient();
-          if (!supabase) {
-              setLoading(false);
-              return;
-          }
-          try {
-              const { data: { user } } = await supabase.auth.getUser();
-              if (user) {
-                  const { data } = await supabase.from('app_users').select('user_rules(rule_name)').eq('auth_id', user.id).single();
-                  if (data?.user_rules?.rule_name === 'Administrator') {
-                      setIsAdmin(true);
-                  }
-              }
-          } catch (error) {
-              console.error('Error checking admin status:', error);
-          } finally {
-              setLoading(false);
-          }
-      };
-      checkAdmin();
-  }, [hasSupabase]);
+  const { isAdministrator } = useSessionRole();
 
   if (!hasSupabase) return <div className="p-8 text-center text-slate-500">Configure o banco de dados primeiro.</div>;
 
-  // Show loading while checking admin status
-  if (loading) {
-      return (
-          <div className="p-8 text-center">
-              <Loader2 size={48} className="mx-auto text-indigo-600 mb-4 animate-spin"/>
-              <h3 className="text-lg font-bold text-slate-800 mb-2">Carregando...</h3>
-              <p className="text-slate-500 text-sm">Verificando permissões de acesso.</p>
-          </div>
-      );
-  }
-
-  // Only admins can access this component
-  if (!isAdmin) {
+  if (!isAdministrator) {
       return (
           <div className="p-8 text-center">
               <AlertTriangle size={48} className="mx-auto text-amber-400 mb-4"/>

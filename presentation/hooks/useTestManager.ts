@@ -5,8 +5,10 @@ import { TestRepositoryImpl, QuestionRepositoryImpl, ProfessorRepositoryImpl, AI
 import { getSupabaseClient } from '../../services/supabaseService';
 import { Test, Professor, Question, Institution } from '../../types';
 import { getFriendlyErrorMessage } from '../../utils/errorHandling';
+import { useSessionRole } from '../context/SessionRoleContext';
 
 export const useTestManager = (hasSupabase: boolean, institutionId?: string) => {
+  const { isAdministrator } = useSessionRole();
   const [tests, setTests] = useState<Test[]>([]);
   const [professors, setProfessors] = useState<Professor[]>([]);
   const [institutions, setInstitutions] = useState<Institution[]>([]);
@@ -20,7 +22,6 @@ export const useTestManager = (hasSupabase: boolean, institutionId?: string) => 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedTest, setSelectedTest] = useState<Test | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
 
   const supabase = getSupabaseClient();
@@ -36,25 +37,18 @@ export const useTestManager = (hasSupabase: boolean, institutionId?: string) => 
     setLoading(true);
     setError(null);
     try {
-        let adminStatus = false;
+        const adminStatus = isAdministrator;
         const { data: { user } } = await supabase.auth.getUser();
-        
-        let appUserId = null;
+
+        let appUserId: string | null = null;
         if (user) {
             const { data } = await supabase
               .from('app_users')
-              .select('id, user_rules(rule_name)')
+              .select('id')
               .eq('auth_id', user.id)
-              .single();
-            
-            if (data) {
-                appUserId = data.id;
-                if (data.user_rules?.rule_name === 'Administrator') {
-                    adminStatus = true;
-                }
-            }
+              .maybeSingle();
+            if (data) appUserId = data.id;
         }
-        setIsAdmin(adminStatus);
 
         // Check for Manager role
         const { data: managedInst } = await supabase.from('institutions').select('id').eq('manager_id', appUserId).maybeSingle();
@@ -118,7 +112,7 @@ export const useTestManager = (hasSupabase: boolean, institutionId?: string) => 
     } finally {
         setLoading(false);
     }
-  }, [testUseCase, profUseCase, instUseCase, supabase, institutionId]);
+  }, [testUseCase, profUseCase, instUseCase, supabase, institutionId, isAdministrator]);
 
   // Lazy Load: Only called when user wants to create a test
   const fetchQuestions = useCallback(async () => {
@@ -243,7 +237,7 @@ export const useTestManager = (hasSupabase: boolean, institutionId?: string) => 
     loadTestDetails,
     deleteTest,
     restoreTest,
-    isAdmin,
+    isAdmin: isAdministrator,
     showDeleted,
     setShowDeleted,
     setSelectedTest,

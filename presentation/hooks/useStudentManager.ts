@@ -5,14 +5,15 @@ import { StudentRepositoryImpl, InstitutionRepositoryImpl, TestRepositoryImpl, C
 import { getSupabaseClient } from '../../services/supabaseService';
 import { Student, Institution, TestResult, SchoolClass, UserRegistrationDTO, TestRelease, UserRule, Address } from '../../types';
 import { getFriendlyErrorMessage } from '../../utils/errorHandling';
+import { useSessionRole } from '../context/SessionRoleContext';
 
 export const useStudentManager = (hasSupabase: boolean, institutionId?: string) => {
+  const { isAdministrator } = useSessionRole();
   const [students, setStudents] = useState<Student[]>([]);
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [rules, setRules] = useState<UserRule[]>([]);
   
@@ -34,31 +35,20 @@ export const useStudentManager = (hasSupabase: boolean, institutionId?: string) 
     setError(null);
     try {
       let targetInstId = institutionId;
-      let adminStatus = false;
+      const adminStatus = isAdministrator;
 
-      // Check Role
       const { data: { user } } = await supabase.auth.getUser();
+      let appUserId: string | null = null;
       if (user) {
-          const { data } = await supabase
-            .from('app_users')
-            .select('user_rules(rule_name)')
-            .eq('auth_id', user.id)
-            .single();
-          
-          if (data?.user_rules?.rule_name === 'Administrator') {
-              adminStatus = true;
-          }
-      }
-      setIsAdmin(adminStatus);
-
-      if (!targetInstId && !adminStatus) {
-          if (user) {
-              const { data: managedInst } = await supabase.from('institutions').select('id').eq('manager_id', user.id).maybeSingle();
-              if (managedInst) targetInstId = managedInst.id;
-          }
+          const { data: au } = await supabase.from('app_users').select('id').eq('auth_id', user.id).maybeSingle();
+          appUserId = au?.id ?? null;
       }
 
-      // Logic: Include deleted only if Admin AND showDeleted is true
+      if (!targetInstId && !adminStatus && appUserId) {
+          const { data: managedInst } = await supabase.from('institutions').select('id').eq('manager_id', appUserId).maybeSingle();
+          if (managedInst) targetInstId = managedInst.id;
+      }
+
       const includeDeleted = adminStatus && showDeleted;
 
       let sData, iData, cData;
@@ -93,7 +83,7 @@ export const useStudentManager = (hasSupabase: boolean, institutionId?: string) 
     } finally {
       setLoading(false);
     }
-  }, [useCase, instUseCase, classUseCase, supabase, institutionId, showDeleted]);
+  }, [useCase, instUseCase, classUseCase, supabase, institutionId, showDeleted, isAdministrator]);
 
   const fetchRules = useCallback(async () => {
     if (!ruleUseCase) return;
@@ -264,7 +254,7 @@ export const useStudentManager = (hasSupabase: boolean, institutionId?: string) 
       updateStudent, 
       deleteStudent,
       restoreStudent, 
-      isAdmin, showDeleted, setShowDeleted,
+      isAdmin: isAdministrator, showDeleted, setShowDeleted,
       refresh,
       loadStudentHistory,
       studentHistory,

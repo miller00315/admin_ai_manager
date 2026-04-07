@@ -4,42 +4,26 @@ import { LibraryUseCases } from '../../domain/usecases';
 import { LibraryRepositoryImpl } from '../../data/repositories';
 import { getSupabaseClient } from '../../services/supabaseService';
 import { Library, LibraryItem } from '../../types';
+import { useSessionRole } from '../context/SessionRoleContext';
 
 export const useLibraryManager = (hasSupabase: boolean, gradeId?: string) => {
+    const { isAdministrator } = useSessionRole();
     const [libraries, setLibraries] = useState<Library[]>([]);
     const [selectedLibraryItems, setSelectedLibraryItems] = useState<LibraryItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [loadingItems, setLoadingItems] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [isAdmin, setIsAdmin] = useState(false);
     const [showDeleted, setShowDeleted] = useState(false);
     const [currentLibraryId, setCurrentLibraryId] = useState<string | null>(null);
 
     const supabase = getSupabaseClient();
     const useCase = useMemo(() => supabase ? new LibraryUseCases(new LibraryRepositoryImpl(supabase)) : null, [supabase]);
 
-    // Check if user is admin
-    useEffect(() => {
-        const checkAdmin = async () => {
-            if (!supabase) return;
-            try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                    const { data } = await supabase.from('app_users').select('user_rules(rule_name)').eq('auth_id', user.id).single();
-                    setIsAdmin(data?.user_rules?.rule_name === 'Administrator');
-                }
-            } catch (e) {
-                console.error("Error checking admin status:", e);
-            }
-        };
-        checkAdmin();
-    }, [supabase]);
-
     const fetchLibraries = useCallback(async () => {
         if (!useCase || !gradeId) return;
         setLoading(true);
         try {
-            const includeDeleted = isAdmin && showDeleted;
+            const includeDeleted = isAdministrator && showDeleted;
             const data = await useCase.getLibraries(gradeId, includeDeleted);
             setLibraries(data);
         } catch (err: any) {
@@ -48,14 +32,14 @@ export const useLibraryManager = (hasSupabase: boolean, gradeId?: string) => {
         } finally {
             setLoading(false);
         }
-    }, [useCase, gradeId, isAdmin, showDeleted]);
+    }, [useCase, gradeId, isAdministrator, showDeleted]);
 
     const fetchItems = useCallback(async (libraryId: string) => {
         if (!useCase) return;
         setLoadingItems(true);
         setCurrentLibraryId(libraryId);
         try {
-            const includeDeleted = isAdmin && showDeleted;
+            const includeDeleted = isAdministrator && showDeleted;
             const data = await useCase.getItems(libraryId, includeDeleted);
             setSelectedLibraryItems(data);
         } catch (err: any) {
@@ -64,7 +48,7 @@ export const useLibraryManager = (hasSupabase: boolean, gradeId?: string) => {
         } finally {
             setLoadingItems(false);
         }
-    }, [useCase, isAdmin, showDeleted]);
+    }, [useCase, isAdministrator, showDeleted]);
 
     useEffect(() => {
         if (hasSupabase && gradeId) fetchLibraries();
@@ -133,7 +117,7 @@ export const useLibraryManager = (hasSupabase: boolean, gradeId?: string) => {
         loading,
         loadingItems,
         error,
-        isAdmin,
+        isAdmin: isAdministrator,
         showDeleted,
         setShowDeleted,
         createLibrary,

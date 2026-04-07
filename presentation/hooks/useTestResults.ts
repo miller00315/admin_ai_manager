@@ -4,13 +4,14 @@ import { ResultsUseCases, InstitutionUseCases } from '../../domain/usecases';
 import { TestRepositoryImpl, TestReleaseRepositoryImpl, InstitutionRepositoryImpl } from '../../data/repositories';
 import { getSupabaseClient } from '../../services/supabaseService';
 import { TestResult, TestResultCorrectionLog, StudentTestAnswer, TestAttemptLog, Institution } from '../../types';
+import { useSessionRole } from '../context/SessionRoleContext';
 
 export const useTestResults = (hasSupabase: boolean, institutionId?: string) => {
+  const { userRole } = useSessionRole();
   const [results, setResults] = useState<TestResult[]>([]);
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
 
   const supabase = getSupabaseClient();
   const useCase = useMemo(() => supabase ? new ResultsUseCases(
@@ -27,16 +28,14 @@ export const useTestResults = (hasSupabase: boolean, institutionId?: string) => 
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Not authenticated");
 
-        // Determine Role Context
         const { data: appUser } = await supabase.from('app_users')
-            .select('id, user_rules(rule_name)')
+            .select('id')
             .eq('auth_id', user.id)
             .single();
 
         if (!appUser) throw new Error("User profile not found");
 
-        const role = (appUser.user_rules as any)?.rule_name;
-        setUserRole(role);
+        const role = userRole;
         
         let data: TestResult[] = [];
         let instData: Institution[] = [];
@@ -98,7 +97,7 @@ export const useTestResults = (hasSupabase: boolean, institutionId?: string) => 
     } finally {
         setLoading(false);
     }
-  }, [useCase, instUC, supabase, institutionId]);
+  }, [useCase, instUC, supabase, institutionId, userRole]);
 
   useEffect(() => {
     if (hasSupabase) fetchResults();

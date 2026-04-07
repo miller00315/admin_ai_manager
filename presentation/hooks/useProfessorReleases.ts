@@ -4,9 +4,10 @@ import { TestReleaseUseCases, TestUseCases } from '../../domain/usecases';
 import { TestReleaseRepositoryImpl, TestRepositoryImpl } from '../../data/repositories';
 import { getSupabaseClient } from '../../services/supabaseService';
 import { TestRelease, Test } from '../../types';
-
+import { useSessionRole } from '../context/SessionRoleContext';
 
 export const useProfessorReleases = (hasSupabase: boolean) => {
+  const { isAdministrator } = useSessionRole();
   const [releases, setReleases] = useState<TestRelease[]>([]);
   const [allReleases, setAllReleases] = useState<TestRelease[]>([]); // Todas as liberações (antes do filtro)
   const [tests, setTests] = useState<Test[]>([]);
@@ -45,7 +46,7 @@ export const useProfessorReleases = (hasSupabase: boolean) => {
       let appUserId = null;
       const { data, error: appUserError } = await supabase
         .from('app_users')
-        .select('id, user_rules(rule_name)')
+        .select('id')
         .eq('auth_id', user.id)
         .maybeSingle();
       
@@ -101,24 +102,7 @@ export const useProfessorReleases = (hasSupabase: boolean) => {
     
     setTestsLoading(true);
     try {
-      // Verificar se é admin (mesma estratégia que useTestManager)
-      let adminStatus = false;
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (user) {
-        const { data, error: appUserError } = await supabase
-          .from('app_users')
-          .select('id, user_rules(rule_name)')
-          .eq('auth_id', user.id)
-          .maybeSingle();
-        
-        if (!appUserError && data && data.user_rules?.rule_name === 'Administrator') {
-          adminStatus = true;
-        }
-      }
-
-      // Usar adminStatus para determinar se deve incluir deletados (mesma estratégia que useTestManager)
-      const data = await testUC.getTestsByProfessor(professorId, adminStatus);
+      const data = await testUC.getTestsByProfessor(professorId, isAdministrator);
       setTests(data || []);
     } catch (err: any) {
       console.error('Error fetching tests:', err);
@@ -127,7 +111,7 @@ export const useProfessorReleases = (hasSupabase: boolean) => {
     } finally {
       setTestsLoading(false);
     }
-  }, [testUC, professorId, supabase]);
+  }, [testUC, professorId, isAdministrator]);
 
   const fetchReleases = useCallback(async (testId?: string) => {
     // Não buscar liberações se não houver professorId ou testId

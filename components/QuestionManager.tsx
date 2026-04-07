@@ -10,6 +10,7 @@ import {
   BookOpen, Filter, Pencil, Upload, FileText, CheckCircle, RotateCcw, Image as ImageIcon, ChevronLeft, ChevronRight, ScrollText
 } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
+import { bnccSummaryLines, bnccSelectLabel } from '../utils/bnccDisplay';
 
 interface QuestionManagerProps {
   hasSupabase: boolean;
@@ -87,15 +88,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
       if (q.bncc_id) alert('BNCC vinculada (ID: ' + q.bncc_id + '). Detalhes não disponíveis.');
       return;
     }
-    const parts = [
-      'Detalhes da BNCC',
-      '────────────────────────────',
-      'Código: ' + (bncc.codigo_alfanumerico || '—'),
-      bncc.ano_serie ? 'Ano/Série: ' + bncc.ano_serie : '',
-      bncc.componente_curricular ? 'Componente curricular: ' + bncc.componente_curricular : '',
-      bncc.unidade_tematica ? 'Unidade temática: ' + bncc.unidade_tematica : '',
-      bncc.descricao_habilidade ? '\nDescrição da habilidade:\n' + bncc.descricao_habilidade : ''
-    ].filter(Boolean);
+    const parts = ['Detalhes da BNCC', '────────────────────────────', ...bnccSummaryLines(bncc)];
     alert(parts.join('\n'));
   };
   
@@ -363,7 +356,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
                   <option value="All">Todas as BNCC</option>
                   <option value="__none__">Sem BNCC</option>
                   {activeBnccItems.map(b => (
-                    <option key={b.id} value={b.id}>{b.codigo_alfanumerico}{b.descricao_habilidade ? ` – ${b.descricao_habilidade.slice(0, 40)}${b.descricao_habilidade.length > 40 ? '…' : ''}` : ''}</option>
+                    <option key={b.id} value={b.id}>{bnccSelectLabel(b, 40)}</option>
                   ))}
               </select>
           </div>
@@ -464,7 +457,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({ hasSupabase }) => {
                       >
                           <option value="">Nenhum / Opcional</option>
                           {activeBnccItems.map(b => (
-                              <option key={b.id} value={b.id}>{b.codigo_alfanumerico} – {b.descricao_habilidade?.slice(0, 60) || b.componente_curricular || b.id}{b.descricao_habilidade && b.descricao_habilidade.length > 60 ? '…' : ''}</option>
+                              <option key={b.id} value={b.id}>{bnccSelectLabel(b, 60)}</option>
                           ))}
                       </select>
                   </div>

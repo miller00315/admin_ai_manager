@@ -10,6 +10,7 @@ import {
   AlertTriangle, RotateCcw, Trash2, Scale, Image as ImageIcon, Edit2, Save, Upload, Home, ScrollText
 } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
+import { bnccSelectLabel } from '../utils/bnccDisplay';
 
 interface TestManagerProps {
   hasSupabase: boolean;
@@ -461,7 +462,7 @@ const TestManager: React.FC<TestManagerProps> = ({ hasSupabase, institutionId, i
                       <option value="All">Todas as BNCC</option>
                       <option value="__none__">Sem BNCC</option>
                       {activeBnccItems.map(b => (
-                        <option key={b.id} value={b.id}>{b.codigo_alfanumerico}{b.descricao_habilidade ? ` – ${b.descricao_habilidade.slice(0, 35)}${b.descricao_habilidade.length > 35 ? '…' : ''}` : ''}</option>
+                        <option key={b.id} value={b.id}>{bnccSelectLabel(b, 35)}</option>
                       ))}
                   </select>
               </div>

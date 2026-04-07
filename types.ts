@@ -2,7 +2,7 @@
 export type Difficulty = 'Easy' | 'Medium' | 'Hard';
 export type UserRole = 'Administrator' | 'Institution' | 'Teacher' | 'Student';
 
-export type View = 'dashboard' | 'questions' | 'tests' | 'professors' | 'institutions' | 'classes' | 'grades' | 'students' | 'grading' | 'results' | 'agents' | 'releases' | 'rules' | 'settings' | 'my_class' | 'bncc' | 'departments' | 'disciplines' | 'my_institution' | 'institution_types' | 'financial' | 'reports';
+export type View = 'dashboard' | 'questions' | 'tests' | 'professors' | 'institutions' | 'classes' | 'grades' | 'students' | 'grading' | 'results' | 'agents' | 'releases' | 'rules' | 'settings' | 'my_class' | 'bncc' | 'bncc_catalog' | 'departments' | 'disciplines' | 'my_institution' | 'institution_types' | 'financial' | 'reports';
 
 export interface GeoPoint {
     lat: number;
@@ -288,15 +288,81 @@ export interface LibraryItem {
     deleted?: boolean;
 }
 
+/** Componente curricular (tabela curriculum_component) */
+export interface CurriculumComponent {
+    id: string;
+    name: string;
+    description?: string | null;
+    created_at?: string;
+    deleted?: boolean;
+}
+
+/** Disciplina BNCC / referência curricular (tabela discipline_reference) */
+export interface DisciplineReference {
+    id: string;
+    name: string;
+    description?: string | null;
+    created_at?: string;
+    deleted?: boolean;
+}
+
+/** Etapa de ensino (tabela teaching_stage) */
+export interface TeachingStage {
+    id: string;
+    name: string;
+    description?: string | null;
+    created_at?: string;
+    deleted?: boolean;
+}
+
+/** Competência específica BNCC (tabela habilities; eixo / agrupador no catálogo) */
+export interface Hability {
+    id: string;
+    name: string;
+    description?: string | null;
+    created_at?: string;
+    deleted?: boolean;
+}
+
+/** Habilidade BNCC (tabela specific_skills) */
+export interface SpecificSkill {
+    id: string;
+    name: string;
+    description?: string | null;
+    hability_id: string;
+    created_at?: string;
+    deleted?: boolean;
+    /** Join PostgREST (alias hability:habilities) */
+    hability?: Hability | null;
+    habilities?: Hability | null;
+}
+
+/**
+ * Registro BNCC (tabela bncc) com FKs para o modelo relacional novo.
+ * Campos legados (componente_curricular, descricao_habilidade, etc.) são usados só na importação/PDF
+ * e convertidos em FKs no repositório antes do insert.
+ */
 export interface BNCCItem {
     id: string;
     codigo_alfanumerico: string;
-    descricao_habilidade?: string;
-    ano_serie?: string;
-    componente_curricular?: string;
-    unidade_tematica?: string;
+    curriculum_component_id?: string | null;
+    discipline_reference_id?: string | null;
+    teaching_stage_id?: string | null;
+    specific_skills_id?: string | null;
     deleted?: boolean;
     created_at?: string;
+    curriculum_component?: CurriculumComponent | null;
+    discipline_reference?: DisciplineReference | null;
+    teaching_stage?: TeachingStage | null;
+    specific_skills?: SpecificSkill | null;
+    /** @deprecated usar curriculum_component; mantido para extrator PDF / dados antigos */
+    componente_curricular?: string;
+    /** @deprecated usar specific_skills.description */
+    descricao_habilidade?: string;
+    /** @deprecated usar teaching_stage */
+    ano_serie?: string;
+    /** @deprecated usar discipline_reference */
+    unidade_tematica?: string;
 }
 
 export interface ClassroomRoom {

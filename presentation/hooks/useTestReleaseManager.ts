@@ -5,8 +5,10 @@ import { TestReleaseRepositoryImpl, TestRepositoryImpl, StudentRepositoryImpl, P
 import { getSupabaseClient } from '../../services/supabaseService';
 import { TestRelease, Test, Student, Professor, Institution, TestReleaseSite, TestResult } from '../../types';
 import { getFriendlyErrorMessage } from '../../utils/errorHandling';
+import { useSessionRole } from '../context/SessionRoleContext';
 
 export const useTestReleaseManager = (hasSupabase: boolean, institutionId?: string) => {
+  const { userRole, isAdministrator } = useSessionRole();
   const [releases, setReleases] = useState<TestRelease[]>([]);
   const [tests, setTests] = useState<Test[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -18,7 +20,6 @@ export const useTestReleaseManager = (hasSupabase: boolean, institutionId?: stri
   const [isCreating, setIsCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
 
   const supabase = getSupabaseClient();
@@ -38,18 +39,16 @@ export const useTestReleaseManager = (hasSupabase: boolean, institutionId?: stri
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Not authenticated");
 
-        // Get App User details and role
         const { data: appUser } = await supabase
             .from('app_users')
-            .select('id, user_rules(rule_name)')
+            .select('id')
             .eq('auth_id', user.id)
             .single();
 
         if (!appUser) throw new Error("User profile not found");
 
-        const role = (appUser.user_rules as any)?.rule_name;
-        const adminStatus = role === 'Administrator';
-        setIsAdmin(adminStatus);
+        const role = userRole;
+        const adminStatus = isAdministrator;
         
         let rData, tData, sData, pData, iData, resData;
         const includeDeleted = adminStatus && showDeleted;
@@ -177,7 +176,7 @@ export const useTestReleaseManager = (hasSupabase: boolean, institutionId?: stri
     } finally {
         setLoading(false);
     }
-  }, [releaseUC, testUC, studentUC, profUC, instUC, resultsUC, supabase, institutionId, showDeleted]);
+  }, [releaseUC, testUC, studentUC, profUC, instUC, resultsUC, supabase, institutionId, showDeleted, userRole, isAdministrator]);
 
   useEffect(() => {
     if (hasSupabase) fetchData();
@@ -272,7 +271,7 @@ export const useTestReleaseManager = (hasSupabase: boolean, institutionId?: stri
 
   return {
       releases, tests, students, professors, institutions, results,
-      loading, isCreating, deletingId, error, isAdmin, showDeleted, setShowDeleted,
+      loading, isCreating, deletingId, error, isAdmin: isAdministrator, showDeleted, setShowDeleted,
       createRelease, createBulkReleases, deleteRelease, restoreRelease,
       addAllowedSite, removeAllowedSite, refresh: fetchData,
       getTestDetails, getStudentAnswers

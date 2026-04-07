@@ -6,6 +6,7 @@ import { SchoolGrade, Discipline } from '../types';
 import { ArrowLeft, BookOpen, Save, Loader2, Trash2, Plus, User, AlertCircle, CheckCircle, Edit2, X, Info, Library as LibraryIcon, ScrollText, ChevronRight, Home } from 'lucide-react';
 import LibraryManager from './LibraryManager';
 import { getSupabaseClient } from '../services/supabaseService';
+import { bnccCurriculumLabel, bnccDisciplineRefLabel, bnccSkillDescription, bnccTeachingStageLabel } from '../utils/bnccDisplay';
 
 interface GradeDetailsProps {
   grade: SchoolGrade;
@@ -382,12 +383,12 @@ const GradeDetails: React.FC<GradeDetailsProps> = ({ grade, onBack, hasSupabase,
                                                                     </div>
                                                                     {/* Tooltip */}
                                                                     <div className="absolute z-20 hidden group-hover/bncc:block w-72 p-3 bg-slate-800 dark:bg-slate-900 text-white text-xs rounded-lg shadow-xl -top-2 left-full ml-2">
-                                                                        <div className="font-bold text-purple-300 mb-1">{bncc.componente_curricular}</div>
-                                                                        {bncc.ano_serie && <div className="text-slate-400 mb-1">{bncc.ano_serie}</div>}
-                                                                        <p className="line-clamp-4">{bncc.descricao_habilidade}</p>
-                                                                        {bncc.unidade_tematica && (
+                                                                        <div className="font-bold text-purple-300 mb-1">{bnccCurriculumLabel(bncc) || '—'}</div>
+                                                                        {bnccTeachingStageLabel(bncc) && <div className="text-slate-400 mb-1">{bnccTeachingStageLabel(bncc)}</div>}
+                                                                        <p className="line-clamp-4">{bnccSkillDescription(bncc) || '—'}</p>
+                                                                        {bnccDisciplineRefLabel(bncc) && (
                                                                             <div className="mt-2 pt-2 border-t border-slate-600 text-slate-400">
-                                                                                <span className="font-medium">Unidade:</span> {bncc.unidade_tematica}
+                                                                                <span className="font-medium">Disciplina:</span> {bnccDisciplineRefLabel(bncc)}
                                                                             </div>
                                                                         )}
                                                                     </div>

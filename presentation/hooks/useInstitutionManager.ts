@@ -4,12 +4,13 @@ import { InstitutionRepositoryImpl, UserRuleRepositoryImpl } from '../../data/re
 import { getSupabaseClient } from '../../services/supabaseService';
 import { Institution, Address, UserRegistrationDTO, UserRule } from '../../types';
 import { getFriendlyErrorMessage } from '../../utils/errorHandling';
+import { useSessionRole } from '../context/SessionRoleContext';
 
 export const useInstitutionManager = (hasSupabase: boolean) => {
+  const { isAdministrator } = useSessionRole();
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [rules, setRules] = useState<UserRule[]>([]);
 
@@ -22,24 +23,7 @@ export const useInstitutionManager = (hasSupabase: boolean) => {
     setLoading(true);
     setError(null);
     try {
-      // Check role to determine visibility
-      const { data: { user } } = await supabase.auth.getUser();
-      let adminStatus = false;
-      if (user) {
-          const { data } = await supabase
-            .from('app_users')
-            .select('user_rules(rule_name)')
-            .eq('auth_id', user.id)
-            .single();
-          
-          if (data?.user_rules?.rule_name === 'Administrator') {
-              adminStatus = true;
-          }
-      }
-      setIsAdmin(adminStatus);
-
-      // Only allow includeDeleted if user is Admin AND toggle is checked
-      const includeDeleted = adminStatus && showDeleted;
+      const includeDeleted = isAdministrator && showDeleted;
       const data = await useCase.getInstitutions(includeDeleted);
       setInstitutions(data);
     } catch (err: any) {
@@ -49,7 +33,7 @@ export const useInstitutionManager = (hasSupabase: boolean) => {
     } finally {
       setLoading(false);
     }
-  }, [useCase, supabase, showDeleted]);
+  }, [useCase, supabase, showDeleted, isAdministrator]);
 
   const fetchRules = useCallback(async () => {
     if (!ruleUseCase) return;
@@ -134,7 +118,7 @@ export const useInstitutionManager = (hasSupabase: boolean) => {
   return { 
       institutions, loading, error, 
       addInstitution, updateInstitution, deleteInstitution, restoreInstitution, 
-      isAdmin, showDeleted, setShowDeleted, 
+      isAdmin: isAdministrator, showDeleted, setShowDeleted, 
       refresh,
       rules
   };

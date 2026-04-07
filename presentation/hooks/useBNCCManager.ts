@@ -5,12 +5,13 @@ import { BNCCRepositoryImpl } from '../../data/repositories';
 import { getSupabaseClient } from '../../services/supabaseService';
 import { BNCCItem } from '../../types';
 import { getFriendlyErrorMessage } from '../../utils/errorHandling';
+import { useSessionRole } from '../context/SessionRoleContext';
 
 export const useBNCCManager = (hasSupabase: boolean) => {
+    const { isAdministrator } = useSessionRole();
     const [items, setItems] = useState<BNCCItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [isAdmin, setIsAdmin] = useState(false);
     const [showDeleted, setShowDeleted] = useState(false);
 
     const supabase = getSupabaseClient();
@@ -21,15 +22,7 @@ export const useBNCCManager = (hasSupabase: boolean) => {
         setLoading(true);
         setError(null);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            let adminStatus = false;
-            if (user) {
-                const { data } = await supabase.from('app_users').select('user_rules(rule_name)').eq('auth_id', user.id).single();
-                if (data?.user_rules?.rule_name === 'Administrator') adminStatus = true;
-            }
-            setIsAdmin(adminStatus);
-
-            const includeDeleted = adminStatus && showDeleted;
+            const includeDeleted = isAdministrator && showDeleted;
             const data = await useCase.getItems(includeDeleted);
             setItems(data);
         } catch (err: any) {
@@ -42,7 +35,7 @@ export const useBNCCManager = (hasSupabase: boolean) => {
         } finally {
             setLoading(false);
         }
-    }, [useCase, supabase, showDeleted]);
+    }, [useCase, supabase, showDeleted, isAdministrator]);
 
     useEffect(() => {
         if (hasSupabase) fetchItems();
@@ -87,6 +80,6 @@ export const useBNCCManager = (hasSupabase: boolean) => {
     return { 
         items, loading, error, 
         saveItem, deleteItem, restoreItem, 
-        isAdmin, showDeleted, setShowDeleted, refresh: fetchItems 
+        isAdmin: isAdministrator, showDeleted, setShowDeleted, refresh: fetchItems 
     };
 };

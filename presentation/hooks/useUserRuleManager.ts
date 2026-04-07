@@ -5,12 +5,13 @@ import { UserRuleRepositoryImpl } from '../../data/repositories';
 import { getSupabaseClient } from '../../services/supabaseService';
 import { UserRule } from '../../types';
 import { getFriendlyErrorMessage } from '../../utils/errorHandling';
+import { useSessionRole } from '../context/SessionRoleContext';
 
 export const useUserRuleManager = (hasSupabase: boolean) => {
+    const { isAdministrator } = useSessionRole();
     const [rules, setRules] = useState<UserRule[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [isAdmin, setIsAdmin] = useState(false);
     const [showDeleted, setShowDeleted] = useState(false);
 
     const supabase = getSupabaseClient();
@@ -21,15 +22,6 @@ export const useUserRuleManager = (hasSupabase: boolean) => {
         setLoading(true);
         setError(null);
         try {
-            // Check if user is admin
-            const { data: { user } } = await supabase.auth.getUser();
-            let adminStatus = false;
-            if (user) {
-                const { data } = await supabase.from('app_users').select('user_rules(rule_name)').eq('auth_id', user.id).single();
-                if (data?.user_rules?.rule_name === 'Administrator') adminStatus = true;
-            }
-            setIsAdmin(adminStatus);
-            
             // NOTE: UserRules are Admin-only by definition in UI access, so we don't need complex role checks here usually.
             // But strictness is good.
             const data = await useCase.getRules(); // Use case might need update if repo supports deleted flag. 
@@ -116,7 +108,7 @@ export const useUserRuleManager = (hasSupabase: boolean) => {
     };
 
     return { 
-        rules, loading, error, isAdmin,
+        rules, loading, error, isAdmin: isAdministrator,
         saveRule, deleteRule, restoreRule, 
         showDeleted, setShowDeleted, refresh: fetchRules 
     };

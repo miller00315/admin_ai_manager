@@ -5,13 +5,14 @@ import { ClassRepositoryImpl, InstitutionRepositoryImpl } from '../../data/repos
 import { getSupabaseClient } from '../../services/supabaseService';
 import { SchoolClass, Institution } from '../../types';
 import { getFriendlyErrorMessage } from '../../utils/errorHandling';
+import { useSessionRole } from '../context/SessionRoleContext';
 
 export const useClassManager = (hasSupabase: boolean, institutionId?: string) => {
+  const { isAdministrator, userRole } = useSessionRole();
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
 
   const supabase = getSupabaseClient();
@@ -25,46 +26,29 @@ export const useClassManager = (hasSupabase: boolean, institutionId?: string) =>
     setError(null);
     try {
       let targetInstId = institutionId;
-      let adminStatus = false;
+      const adminStatus = isAdministrator;
 
-      // Check Role
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-          const { data } = await supabase
-            .from('app_users')
-            .select('user_rules(rule_name)')
-            .eq('auth_id', user.id)
-            .single();
-          
-          if (data?.user_rules?.rule_name === 'Administrator') {
-              adminStatus = true;
-          }
-      }
-      setIsAdmin(adminStatus);
-
-      // Logic: Include deleted only if Admin AND showDeleted is true
       const includeDeleted = adminStatus && showDeleted;
 
       let cData: SchoolClass[] = [];
       let iData: Institution[] = [];
       let appUserId: string | null = null;
 
+      const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-          const { data: appUser } = await supabase.from('app_users').select('id, user_rules(rule_name)').eq('auth_id', user.id).maybeSingle();
-          if (appUser) appUserId = appUser.id;
-          
-          const role = (appUser?.user_rules as any)?.rule_name;
+          if (!adminStatus) {
+              const { data: appUser } = await supabase.from('app_users').select('id').eq('auth_id', user.id).maybeSingle();
+              if (appUser) appUserId = appUser.id;
+          }
 
-          if (!targetInstId && !adminStatus) {
-              // Check if Manager
+          if (!targetInstId && !adminStatus && appUserId) {
               const { data: managedInst } = await supabase.from('institutions').select('id').eq('manager_id', appUserId).maybeSingle();
               if (managedInst) {
                   targetInstId = managedInst.id;
               }
           }
 
-          // For Teachers: show classes they are assigned to via class_professors AND via disciplines
-          if (role === 'Teacher' && !adminStatus) {
+          if (userRole === 'Teacher' && !adminStatus && appUserId) {
               const { data: prof } = await supabase.from('professors')
                   .select('id, departments(institution_id)')
                   .eq('user_id', appUserId)
@@ -144,7 +128,7 @@ export const useClassManager = (hasSupabase: boolean, institutionId?: string) =>
     } finally {
       setLoading(false);
     }
-  }, [classUseCase, instUseCase, supabase, institutionId, showDeleted]);
+  }, [classUseCase, instUseCase, supabase, institutionId, showDeleted, isAdministrator, userRole]);
 
   useEffect(() => {
     if (hasSupabase) fetchData();
@@ -195,6 +179,6 @@ export const useClassManager = (hasSupabase: boolean, institutionId?: string) =>
   return { 
       classes, institutions, loading, error, 
       addClass, updateClass, deleteClass, restoreClass, 
-      isAdmin, showDeleted, setShowDeleted, refresh: fetchData 
+      isAdmin: isAdministrator, showDeleted, setShowDeleted, refresh: fetchData 
   };
 };
